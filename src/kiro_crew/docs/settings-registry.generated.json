@@ -1964,6 +1964,14 @@
       "hint": "New chats you start in the dashboard run here unless you pick another profile in the “Run this chat on” menu before the first message. Existing chats, scheduled jobs and channel conversations keep running where they do now."
     },
     {
+      "id": "session-environments.let-remote-workspaces-coder-sprites-boxd-open-edit-comment-on-and-read-pull-requests-with-your-github-account",
+      "label": "Let remote workspaces (Coder, Sprites, boxd) open, edit, comment on and read pull requests with your GitHub account",
+      "tab": "session-environments",
+      "route": "/settings/session-environments?highlight=key%3Asession_environments.gh_proxy",
+      "description": "It works only in repositories a remote session uses with git, and writes only where the session has pushed. Every PR description and comment it writes starts with a line that tells readers an agent wrote it. Turning it off stops it at once.",
+      "configKey": "session_environments.gh_proxy"
+    },
+    {
       "id": "session-environments.machine-size",
       "label": "Machine size",
       "tab": "session-environments",

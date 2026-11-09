@@ -3341,6 +3341,16 @@ export const SETTINGS_REGISTRY: SettingEntry[] =
     "occurrence": 1
   },
   {
+    "id": "session-environments.let-remote-workspaces-coder-sprites-boxd-open-edit-comment-on-and-read-pull-requests-with-your-github-account",
+    "label": "Let remote workspaces (Coder, Sprites, boxd) open, edit, comment on and read pull requests with your GitHub account",
+    "labelKey": "sessionEnvironments.ghProxy",
+    "description": "It works only in repositories a remote session uses with git, and writes only where the session has pushed. Every PR description and comment it writes starts with a line that tells readers an agent wrote it. Turning it off stops it at once.",
+    "tab": "session-environments",
+    "type": "toggle",
+    "occurrence": 1,
+    "configKey": "session_environments.gh_proxy"
+  },
+  {
     "id": "session-environments.machine-size",
     "label": "Machine size",
     "labelKey": "sessionEnvironments.boxdSize",
