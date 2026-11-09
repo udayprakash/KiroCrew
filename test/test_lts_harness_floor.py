@@ -249,6 +249,67 @@ class TestKasUnrunnable:
         assert "`agent.kas_bundle` to false" in fix
 
 
+def _refusal_on_record(monkeypatch, tmp_path):
+    """The relay's kiro-cli lists v3 in its help, and a v3 refusal is on record for it.
+
+    What an earlier process kept when kiro-cli answered a KAS start with "V3 is
+    currently not supported on this system." Any v3 start fails the test: the
+    record is the proof, so nothing is started to learn it again.
+    """
+    from kiro_crew import kiro_cli
+    from kiro_crew.acp import client as client_mod
+    from kiro_crew.acp.kas_engine_refusal import remember_start_verdict
+    from kiro_crew.agent_sdk import kas_bundle
+
+    binary = tmp_path / "kiro-cli"
+    binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(client_mod, "_resolve_kiro_bin", lambda **_kw: str(binary))
+    monkeypatch.setattr(kiro_cli, "pin_kiro_cli", lambda: (str(binary), False))
+
+    def _no_start(*_args, **_kwargs):
+        raise AssertionError("the boot gate reads the record; it starts nothing")
+
+    monkeypatch.setattr(kiro_cli, "kas_relay_start_output", _no_start)
+    monkeypatch.setattr(kas_bundle, "kas_route", lambda: _RELAY)
+    _verdict(monkeypatch, True, None)
+    _bundle(monkeypatch, installed=False, installable=False)
+    remember_start_verdict(str(binary), False)
+
+
+class TestARefusalOnRecordReachesTheBootGate:
+    """A v3 refusal on record is proof KAS cannot start on the relay (RFC D6, H1)."""
+
+    @pytest.fixture(autouse=True)
+    def _clean(self, _floor_monkeypatch):
+        _floor_monkeypatch.setattr(lts_boot, "_kas_refusal", None)
+
+    def test_the_relay_check_reads_the_record(self, monkeypatch, tmp_path):
+        from kiro_crew.acp.kas_engine_refusal import KAS_ENGINE_REFUSED_REASON
+
+        _refusal_on_record(monkeypatch, tmp_path)
+        refusal = lts_boot.kas_unrunnable()
+        assert refusal is not None, "a refusal on record let the relay pass the boot check"
+        assert KAS_ENGINE_REFUSED_REASON in refusal[0]
+
+    def test_a_main_on_kas_is_refused_at_restart(self, lts, monkeypatch, tmp_path, capsys):
+        _registered(monkeypatch, KIRO, KAS)
+        _refusal_on_record(monkeypatch, tmp_path)
+        with pytest.raises(SystemExit) as exc:
+            lts_boot.require_kas_harness(_cfg(KAS))
+        assert exc.value.code == lts_boot.EXIT_CODE
+        assert "KAS cannot start" in capsys.readouterr().err
+
+    def test_a_kiro_cli_main_records_it_for_each_kas_session(self, lts, monkeypatch, tmp_path):
+        from kiro_crew.crewmate_harness import KasUnavailable
+
+        _registered(monkeypatch, KIRO, KAS)
+        _refusal_on_record(monkeypatch, tmp_path)
+        lts_boot.require_kas_harness(_cfg(KIRO, KAS))
+        assert lts_boot.kas_refusal() is not None
+        with pytest.raises(KasUnavailable):
+            lts_boot.refuse_unstartable_kas()
+
+
 class TestRequireKasHarness:
     """Fix 1: only the MAIN backend decides the gateway start."""
 

@@ -154,12 +154,16 @@ def kas_unrunnable(*, kas_route: object = None) -> tuple[str, str] | None:
     rule the spawn applies. On the bundle route KAS can start when the pinned engine
     is installed or this host can run the engine the gateway would install. On the
     relay it can start unless kiro-cli's ``acp --help`` RAN and does not offer the
-    engine. An unknown verdict (a failed spawn) is not proof and answers ``None``:
-    that spawn's own error then names the cause. The fix names the other route when
-    that one could help. Blocking: reads config and the sign-in stores, and spawns
-    one bounded ``acp --help``. *kas_route* is a test seam.
+    engine, or the data home holds a v3 refusal for this kiro-cli
+    (``kas_engine_start_verdict(start=False)``): kiro-cli lists v3 in its help even
+    where it then refuses to run it. That record is read only, so nothing is started
+    at boot. An unknown verdict (a failed spawn, no record) is not proof and answers
+    ``None``: that spawn's own error then names the cause. The fix names the other
+    route when that one could help. Blocking: reads config and the sign-in stores,
+    spawns one bounded ``acp --help``, and stats and reads the start record.
+    *kas_route* is a test seam.
     """
-    from kiro_crew.agent_sdk import kas_bundle, kas_engine_verdict
+    from kiro_crew.agent_sdk import kas_bundle, kas_engine_start_verdict, kas_engine_verdict
 
     route = kas_bundle.kas_route() if kas_route is None else kas_route
     if getattr(route, "bundle", False):
@@ -172,6 +176,10 @@ def kas_unrunnable(*, kas_route: object = None) -> tuple[str, str] | None:
             KAS_FIX_ENGINE_UNAVAILABLE_CONFIGURED if configured else KAS_FIX_ENGINE_UNAVAILABLE,
         )
     offers_kas, reason = kas_engine_verdict()
+    if not (offers_kas is False and reason):
+        # Short of a help gap, a v3 refusal an earlier start met on this kiro-cli
+        # is proof too: kiro-cli lists v3 in its help even where it refuses to run it.
+        offers_kas, reason = kas_engine_start_verdict(start=False)
     if offers_kas is False and reason:
         fix = KAS_FIX_UPDATE_KIRO_CLI_OR_BUNDLE if _bundle_can_run() else KAS_FIX_UPDATE_KIRO_CLI
         return f"KAS cannot start: {reason}", fix
@@ -224,8 +232,8 @@ def require_kas_harness(cfg: object, *, test_mode: bool = False) -> None:
     The record is cleared first, so each boot judges this host afresh. Skipped in
     ``--test-mode`` (*test_mode*), as the gateway's KAS floor probe is: an offline test
     boot never probes the developer's kiro-cli. Does nothing in an ``oss`` build.
-    Blocking: one bounded ``acp --help`` probe (``_KAS_HELP_PROBE_TIMEOUT_SECS``) on
-    the relay route.
+    Blocking: one bounded ``acp --help`` probe (``_KAS_HELP_PROBE_TIMEOUT_SECS``) and
+    a read of the data home's v3 start record on the relay route; no v3 start runs.
     """
     global _kas_refusal
     _kas_refusal = None
