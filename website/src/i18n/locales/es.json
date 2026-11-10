@@ -11694,6 +11694,9 @@
     "frameLinkBridge": {
       "openHost": "Abrir {{host}}"
     },
+    "useArtifactFolders": {
+      "move_refused": "El artefacto no se movió."
+    },
     "useMoveSlotToFolder": {
       "move_refused": "La sesión no se movió."
     }

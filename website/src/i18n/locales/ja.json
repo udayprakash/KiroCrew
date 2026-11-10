@@ -11194,6 +11194,9 @@
     "frameLinkBridge": {
       "openHost": "{{host}} を開く"
     },
+    "useArtifactFolders": {
+      "move_refused": "アーティファクトを移動できませんでした。"
+    },
     "useMoveSlotToFolder": {
       "move_refused": "セッションを移動できませんでした。"
     }

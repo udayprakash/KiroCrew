@@ -11038,6 +11038,9 @@
     "frameLinkBridge": {
       "openHost": "[Øþèñ {{host}} ········]"
     },
+    "useArtifactFolders": {
+      "move_refused": "[Ţĥè àŕţìƒàçţ ẁàş ñøţ ɱøṽèð. ···················]"
+    },
     "useMoveSlotToFolder": {
       "move_refused": "[Ţĥè şèşşìøñ ẁàş ñøţ ɱøṽèð. ··················]"
     },

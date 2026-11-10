@@ -11444,6 +11444,9 @@
     "frameLinkBridge": {
       "openHost": "{{host}} öffnen"
     },
+    "useArtifactFolders": {
+      "move_refused": "Das Artefakt konnte nicht verschoben werden."
+    },
     "useMoveSlotToFolder": {
       "move_refused": "Die Sitzung konnte nicht verschoben werden."
     }
