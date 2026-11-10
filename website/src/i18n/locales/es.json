@@ -12862,6 +12862,8 @@
       "cronAckBar": {
         "acknowledge": "Confirmar",
         "acknowledged_this_won_t_be_repeated_in_future_no": "Confirmado — esto no se repetirá en futuras notificaciones",
+        "ack_failed": "No se pudo guardar la confirmación. Inténtalo de nuevo.",
+        "ack_job_gone": "Esta tarea ya no existe, así que no hay nada que confirmar. Puedes eliminar esta notificación.",
         "delete": "Eliminar"
       },
       "errorCard": {

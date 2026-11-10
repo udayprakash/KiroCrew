@@ -270,7 +270,7 @@ async def api_cron_ack(request: web.Request) -> web.Response:
             return _owner_denial_response(request)
     if not notification_ts:
         ok, refused = await _ack_job(state, job_id, summary, "")
-        return refused or web.json_response({"ok": ok})
+        return refused or web.json_response({"ok": True} if ok else _ACK_JOB_GONE)
     # The check, the store write and the record are one step per note, so two
     # overlapping acks (a double click) cannot both pass the check.
     async with cron_note_transition(state, notification_ts):
@@ -284,10 +284,18 @@ async def api_cron_ack(request: web.Request) -> web.Response:
         ok, refused = await _ack_job(state, job_id, summary, ack_id)
         if refused is not None:
             return refused
-        if ok:
-            mark_cron_item_recorded(state, notification_ts, job_id, ack_id)
+        if not ok:
+            # Nothing was saved (the job is gone), so the note stays unread:
+            # marking it read would show "Acknowledged" on the next load.
+            return web.json_response(_ACK_JOB_GONE)
+        mark_cron_item_recorded(state, notification_ts, job_id, ack_id)
         await state.ack_notification(notification_ts)
-    return web.json_response({"ok": ok})
+    return web.json_response({"ok": True})
+
+
+#: The ack reply when the store holds no such job: nothing was saved, and no
+#: retry can save it, which ``code`` tells the client apart from a busy store.
+_ACK_JOB_GONE = {"ok": False, "code": "job_not_found"}
 
 
 async def _ack_job(

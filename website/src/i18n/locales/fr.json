@@ -12862,6 +12862,8 @@
       "cronAckBar": {
         "acknowledge": "Accuser réception",
         "acknowledged_this_won_t_be_repeated_in_future_no": "Accusé de réception — cela ne sera pas répété dans les prochaines notifications",
+        "ack_failed": "Impossible d'enregistrer l'accusé de réception. Réessayez.",
+        "ack_job_gone": "Cette tâche n'existe plus, il n'y a donc rien à confirmer. Vous pouvez supprimer cette notification.",
         "delete": "Supprimer"
       },
       "errorCard": {
