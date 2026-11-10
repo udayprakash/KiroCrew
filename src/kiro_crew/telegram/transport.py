@@ -37,7 +37,7 @@ from kiro_crew.telegram.client import (
     TelegramInbound,
 )
 from kiro_crew.telegram.renderer import _split_markdown_bounded, md_to_telegram_html_safe
-from kiro_crew.telegram.renderer_display import _utf16_len
+from kiro_crew.telegram.renderer_display import _utf16_chunks, _utf16_len
 
 logger = logging.getLogger(__name__)
 
@@ -348,6 +348,19 @@ class TelegramTransport(MessagingTransport):
     async def send_message(
         self, conversation_id: str, content: str, thread_id: str | None = None
     ) -> str:
+        if _utf16_len(content) > TELEGRAM_MAX_TEXT:
+            # Callers split by code points, and an emoji costs two of Telegram's
+            # units, so a part can still be over the cap here. The client cap would
+            # cut its tail and Telegram would still answer with an id, which a
+            # caller reads as the whole message sent. Split again in Telegram's
+            # unit instead, as send_markdown does; the id is the last piece's, and
+            # any refused piece fails the send.
+            last = ""
+            for piece in _utf16_chunks(content, TELEGRAM_MAX_TEXT):
+                last = await self.send_message(conversation_id, piece, thread_id)
+                if not last:
+                    return ""
+            return last
         mid = await self._client.send_message(
             int(conversation_id),
             content,
