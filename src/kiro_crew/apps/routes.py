@@ -386,6 +386,7 @@ if TYPE_CHECKING:  # every owner-defined name in _EXPORTS, for type checkers and
         _proxy_principal,
         _resolve_app_backend_url,
         invalidate_app_secret_cache,
+        protected_app_state,
     )
     from kiro_crew.apps.routes_registry import (  # noqa: F401
         _announce_app_updates,

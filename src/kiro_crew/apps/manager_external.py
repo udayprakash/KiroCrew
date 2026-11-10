@@ -297,6 +297,24 @@ def register_external_app(
             ok=False, name=name, error=f"could not read the approved permissions of {name!r}: {exc}"
         )
     prior_owner_disabled = protected_app_state.owner_disabled(name)
+    # Generate app secret only for new registrations — preserve existing secrets
+    from kiro_crew.dashboard.token_auth import generate_app_secret, write_app_secret
+
+    # The stored one, never the app directory's: a secret from before the store is not
+    # carried over, so a re-registration issues a new one. Checked and written under
+    # the store's lock, so a concurrent issuer for this app cannot overwrite it, and
+    # before any record is written, so a held lock or a store fault refuses cleanly
+    # (the registry install calls this on the loop, where the lock is tried once).
+    try:
+        with protected_app_state.app_secrets_lock():
+            is_new_secret = not (existing and protected_app_state.read_app_secret(name))
+            secret = generate_app_secret() if is_new_secret else ""
+            if is_new_secret:
+                write_app_secret(name, secret)
+    except (OSError, ValueError) as exc:
+        return AppResult(
+            ok=False, name=name, error=f"could not store the app secret of {name!r}: {exc}"
+        )
     approved_grants: dict[str, list[str]] | None
     if not manifest_data:
         if existing:
@@ -396,6 +414,13 @@ def register_external_app(
                         atomic_write(manifest_path, prior_manifest_text)
             except OSError as rollback_exc:
                 rollback_errors.append(f"manifest rollback failed: {rollback_exc}")
+            if is_new_secret:
+                # This refusal returns no secret, so one it stored could never be
+                # handed over and would stop the next registration issuing one.
+                try:
+                    protected_app_state.forget_app_secret(name)
+                except OSError as rollback_exc:
+                    rollback_errors.append(f"secret rollback failed: {rollback_exc}")
             detail = f"failed to persist external registration: {exc}"
             if rollback_errors:
                 detail += f" ({'; '.join(rollback_errors)})"
@@ -434,14 +459,9 @@ def register_external_app(
     # Ensure data directory exists
     app_data_dir(name)
 
-    # Generate app secret only for new registrations — preserve existing secrets
-    from kiro_crew.dashboard.token_auth import generate_app_secret, write_app_secret
-
-    secret_path = dest / ".app_secret"
-    is_new_secret = not (existing and secret_path.is_file())
+    # The store holds the app's secret on both branches, so an older build's file is dead.
+    protected_app_state.remove_legacy_secret(dest / ".app_secret")
     if is_new_secret:
-        secret = generate_app_secret()
-        write_app_secret(name, secret)
         if not existing and meta.enabled:
             # A first registration is an owner-authenticated install+enable (the
             # route requires an owner dashboard request), so it records the owner-
@@ -460,8 +480,6 @@ def register_external_app(
                         "permissions, then enable the app in the App Store"
                     ),
                 )
-    else:
-        secret = ""
 
     action = "updated" if existing else "registered"
     logger.info(

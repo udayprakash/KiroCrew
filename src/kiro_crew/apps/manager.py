@@ -58,6 +58,7 @@ if TYPE_CHECKING:  # every owner-defined name in _EXPORTS, for type checkers and
     from kiro_crew.apps.manager_activation import (  # noqa: F401
         _app_activation_denied,
         _owner_enable_unrecorded,
+        _reissue_legacy_secret,
         _session_approval_consent_unrecorded_on_disk,
         disable_app,
         enable_app,
