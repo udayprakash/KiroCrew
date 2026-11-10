@@ -1202,7 +1202,17 @@ async def switch_slot_agent(
                     status=503,
                 )
 
-        if effective_session_key(slot) != session_key:
+        # The object that holds this switch's choice. An unlocked writer
+        # (openai_compat) can store the same name as a new object; that is still
+        # this choice, so the durable selection below is written for it. The
+        # rollbacks restore the agent fields only on the commit's own object, so
+        # a failed switch leaves that writer's agent in place.
+        held_agent = (
+            slot.agent
+            if slot.agent == committed_agent and slot.agent_kind == committed_agent_kind
+            else committed_agent
+        )
+        if effective_session_key(slot) != session_key or slot.agent is not held_agent:
             # A binding can land during the metadata await too — the rebound
             # guard above ran BEFORE that await, so it must be re-validated
             # after the last await inside the lock or a workflow binding
@@ -1241,7 +1251,7 @@ async def switch_slot_agent(
 
         # Every authorized choice must update both durable records. Only an
         # owner choice can also admit an unbound restored member.
-        if slot.agent is committed_agent and assignment_resolved:
+        if slot.agent is held_agent and assignment_resolved:
             selection_change = None
             selection_error = None
 
@@ -1300,7 +1310,7 @@ async def switch_slot_agent(
                     )
                     if (
                         state._slots.get(slot.key) is not slot
-                        or slot.agent is not committed_agent
+                        or slot.agent is not held_agent
                         or effective_session_key(slot) != session_key
                         or slot.messages
                     ):
@@ -1320,7 +1330,7 @@ async def switch_slot_agent(
                 selection_error = exc
             if selection_error is not None or (
                 state._slots.get(slot.key) is not slot
-                or slot.agent is not committed_agent
+                or slot.agent is not held_agent
                 or effective_session_key(slot) != session_key
             ):
                 await _rollback_owner_selection()
