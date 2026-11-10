@@ -1027,6 +1027,7 @@ export default function SttSettings({ cardIndex }: {
         <ErrorNotice
           message={errMessage(sttQ.error) || i18nT('pages.settings.sttSettings.config_load_failed')}
           askAgent
+          actionPlacement="below-on-phone"
         />
       ) : (
         <FormSkeleton rows={['toggle', 'info', 'field', 'field', 'field', 'info']} />
@@ -1207,6 +1208,7 @@ export default function SttSettings({ cardIndex }: {
         onDismiss={() => setErr('')}
         className="mb-4 animate-rise"
         askAgent={awsDraftsSaved}
+        actionPlacement="below-on-phone"
       />
       <SettingsCard index={cardIndex}>
         <SettingsToggle label={i18nT('pages.settings.sttSettings.enabled')} hint={i18nT('pages.settings.sttSettings.transcribe_voice_into_the_message_box_when_you_c')} checked={stt.enabled} onChange={v => set({ enabled: v })} disabled={saving} />
