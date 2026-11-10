@@ -14,7 +14,15 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from kiro_crew.apps.admission import verified_signed_files
 from kiro_crew.apps.execution import app_execution_denied, is_builtin_app
+from kiro_crew.apps.signed_first import (
+    _owning_root,
+    _source_only_roots,
+    _SourceOnlyLoader,
+    drop_cached_finders,
+)
+from kiro_crew.apps.signed_first import install as install_signed_first
 from kiro_crew.sel import sel
 
 logger = logging.getLogger(__name__)
@@ -58,6 +66,19 @@ _http_app_grants: dict[str, tuple[int, bool]] = {}
 #: an unload+re-enable, the stale v1 callable is ignored rather than applied to
 #: tear down the freshly loaded v2 worker (it would leave v2 running).
 _app_load_generation: dict[str, int] = {}
+
+
+def _set_source_only(app_resolved: Path, listed: frozenset[str] | None) -> None:
+    """Load *app_resolved*'s modules signed-first (*listed* given) or as stock (None)."""
+    root = os.path.realpath(app_resolved)
+    if listed is None and root not in _source_only_roots:
+        return
+    if listed is not None:
+        install_signed_first(root, listed)
+        return
+    _source_only_roots.pop(root, None)
+    drop_cached_finders(root)
+
 
 #: Per-app install directories this process loaded third-party hook code from,
 #: as normalized absolute path strings (both the path as given and its resolved
@@ -447,11 +468,19 @@ def load_app_module(app_name: str, app_dir: Path, module_path: str) -> Callable[
                 "full gateway privileges."
             )
         _warn_third_party_execution(app_name)
+        # Under the fleet signature policy the verified .py runs, never a cached
+        # .pyc beside it. Off, the stock loaders, as before.
+        _set_source_only(app_resolved, verified_signed_files(app_name))
         # Recorded before the body runs: a body that registers its real package
         # name and then raises still leaves modules the next unload must find.
         _record_app_source_root(app_name, app_dir, app_resolved)
 
-    spec = importlib.util.spec_from_file_location(unique_name, str(file_path))
+    loader = (
+        _SourceOnlyLoader(unique_name, str(file_path))
+        if third_party and _owning_root(str(app_resolved)) is not None
+        else None
+    )
+    spec = importlib.util.spec_from_file_location(unique_name, str(file_path), loader=loader)
     if spec is None or spec.loader is None:
         raise ImportError(f"Failed to create module spec for {file_path}")
 
@@ -568,6 +597,9 @@ def unload_app_modules(app_name: str) -> int:
     """
     synthetic = _app_module_keys(app_name)
     real_name = _app_real_name_keys(app_name)
+    # The next load decides again, under the policy as it then stands.
+    for root in _app_source_roots.get(app_name, ()):
+        _set_source_only(Path(root), None)
     for k in synthetic:
         del sys.modules[k]
     for k in real_name:
