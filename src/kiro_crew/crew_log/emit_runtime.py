@@ -1574,6 +1574,7 @@ def on_session_closed(
 
     def _forget() -> None:
         tracker = _tracker_instance
+        _dropped: "Any" = None
         with _lock:
             # Only when no turn of this session is still running. A forced reset
             # tears a session down MID-TURN, and that turn goes on writing through
@@ -1585,12 +1586,20 @@ def on_session_closed(
             # capacity rule reclaims it once that turn is gone. With no tracker
             # installed, no turn of this process is live.
             if tracker is not None:
-                tracker.pop_unless_live(_open, session_id)
+                _dropped = tracker.pop_unless_live(_open, session_id)
             else:
-                _open.pop(session_id, None)
+                _dropped = _open.pop(session_id, None)
             # A later session reusing this id must write its own configuration
             # rather than inheriting a closed session's as "unchanged".
             _last_config.pop(session_id, None)
+        # Release the write lease deterministically. Dropping the handle from
+        # _open is not enough when it is in a reference cycle: the weakref
+        # finalizer that calls release_lease runs only once the cyclic GC
+        # collects the object, which can be deferred past the sole-lease check
+        # in remove_unit and leave the removal returning REMOVE_OWNED.
+        if _dropped is not None:
+            _dropped.release_ownership()
+        with _lock:
             # The creation-failure flag is per SESSION, so it dies with the
             # session rather than living until the next ``reset_caches``: the
             # flag makes every later entry for this id a counted loss, and a
