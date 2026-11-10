@@ -1128,6 +1128,7 @@ export default function SchedulePage() {
                       </TableRow>
                     )}
                     {!isCollapsed && group.jobs.map(j => (
+              <Fragment key={j.id}>
               <TableRow key={j.id} className={`group/jobrow cursor-pointer ${selected?.id === j.id ? 'bg-accent-subtle' : ''} ${selectedIds.has(j.id) ? 'bg-accent-subtle/60' : ''}`} {...guidePick(j.name)} onClick={() => openDetail(j)}>
                 <TableCell className="px-2 text-center" onClick={e => e.stopPropagation()}>
                   <input
@@ -1295,11 +1296,20 @@ export default function SchedulePage() {
                       onNewFolder={handleNewFolder}
                     />
                   </div>
-                  {/* askAgent on: row actions (pause, strict, move, run, delete)
-                      act on a persisted job; the row holds no draft. */}
-                  {actionError?.id === j.id && <ErrorNotice variant="inline" className="mt-1 whitespace-normal" message={actionError.msg} askAgent testId="schedule-job-action-error" />}
                 </TableCell>
               </TableRow>
+              {/* Full-width row (the pinned Actions cell squeezed it), sticky so it stays in view
+                  when the table scrolls sideways. askAgent on: row actions act on a persisted job. */}
+              {actionError?.id === j.id && (
+                <TableRow className="border-danger/20 hover:bg-transparent">
+                  <TableCell colSpan={SCHEDULE_COLUMNS} className="px-4 py-1.5">
+                    <div className="sticky left-4 inline-flex max-w-[calc(100vw-4rem)]" data-testid="schedule-job-action-error-pin">
+                      <ErrorNotice variant="inline" message={actionError.msg} askAgent testId="schedule-job-action-error" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+              </Fragment>
                     ))}</Fragment>
                   )
                 })
