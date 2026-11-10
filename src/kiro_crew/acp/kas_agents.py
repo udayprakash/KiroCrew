@@ -191,7 +191,6 @@ from kiro_crew.mcp_oauth_projection import (
     oauth_lost_keys,
     registry_withheld,
     servers_with_discarded_oauth,
-    withhold_oauth,
 )
 from kiro_crew.platform.governance import (
     may_grant_builtin_at_gate_now,
@@ -893,10 +892,9 @@ def _project_mcp_servers(
             # so the entry drops it: left on, it would keep a managed server off
             # the session-level array and so without its session token.
             projected.pop(key, None)
-        if engine.MCP_SERVER_OAUTH in engine_features:
-            engine.carry_oauth(projected, agent_id=agent_id, name=name, logger=logger)
-        else:
-            withhold_oauth(projected, agent_id=agent_id, name=name, logger=logger)
+        # Always, whatever the engine announces: 0.66.104 reads the block, and
+        # older engines drop it without failing the server (kas_engine_features).
+        engine.carry_oauth(projected, agent_id=agent_id, name=name, logger=logger)
         discarded = [k for k in _KAS_DISCARDED_ENTRY_KEYS if projected.get(k)]
         if discarded:
             # Read off the PROJECTED entry, not the spec's: a key this function

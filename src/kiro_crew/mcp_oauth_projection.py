@@ -1,15 +1,14 @@
 """A remote MCP server's ``oauth`` block on the KAS projection.
 
-KAS's ``mapClientMcpServers`` rebuilds each remote entry from ``url``/``headers``/
-``env``/``timeout`` only, so ``oauth`` never arrives and a pre-registered client
-cannot sign in. :mod:`kiro_crew.acp.kas_agents` withholds the block (it can hold a
-``clientSecret``) and reports the loss through its existing session-start notice;
-this leaf holds the pieces both that module and the notice read.
+KAS engines before 0.66.104 drop the block a ``customAgents`` entry carries, so a
+pre-registered client cannot sign in there; 0.66.104 keeps it. :mod:`kiro_crew.acp.kas_agents`
+sends it to every engine (``kas_engine_features.carry_oauth``), and the session-start
+notice names the loss only where Crew knows the engine is older. This leaf holds
+the pieces that notice reads.
 """
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Iterable
 from typing import Any
 
@@ -72,31 +71,3 @@ def oauth_servers_in(keys: Iterable[str]) -> list[str]:
         for k in keys
         if k.startswith(pre) and k.endswith(suf) and len(k) > len(pre) + len(suf)
     ]
-
-
-def withhold_oauth(
-    projected: dict[str, Any],
-    *,
-    agent_id: str,
-    name: str,
-    logger: logging.Logger,
-) -> None:
-    """Pop *projected*'s ``oauth`` block and log only how many keys it had.
-
-    Withheld rather than sent to be discarded, because the block can hold a
-    ``clientSecret``; that is also why it is not a discarded-entry key.
-    """
-    oauth = projected.pop("oauth", None)
-    if not oauth:
-        return
-    # A fixed message and an integer only: nothing derived from the block's
-    # keys or values reaches the log.
-    count = len(oauth) if isinstance(oauth, dict) else 0
-    logger.info(
-        "agent %r: MCP server %r declares an oauth block (%d keys), which this "
-        "backend discards, so its sign-in cannot work here; the kiro-cli "
-        "backend supports it.",
-        agent_id,
-        name,
-        count,
-    )
