@@ -409,11 +409,14 @@ class TestOutboundRest:
         client = _make_client()
         calls: list[tuple[str, str, Any]] = []
 
-        async def _api(method: str, path: str, payload: Any, timeout: int = 30, **_kw: Any) -> Any:
+        async def _api_json(
+            method: str, path: str, payload: Any, timeout: int = 30, **_kw: Any
+        ) -> Any:
             calls.append((method, path, payload))
-            return {"id": "t9"}
+            return dc.DiscordApiResult(dc.DISCORD_OK, data={"id": "t9"})
 
-        monkeypatch.setattr(client, "_api", _api)
+        # api_json, not _api: the create reads the error code to recover a lost response.
+        monkeypatch.setattr(client, "api_json", _api_json)
         result = await client.create_thread_from_message("c1", "m2", "Topic")
 
         assert result == "t9"

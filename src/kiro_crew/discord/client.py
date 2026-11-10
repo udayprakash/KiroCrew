@@ -165,6 +165,8 @@ _THREAD_INTENTS = _INTENT_GUILD_MESSAGES | _INTENT_MESSAGE_CONTENT
 
 # Discord channel types: announcement thread, public thread, private thread.
 _THREAD_CHANNEL_TYPES = frozenset({10, 11, 12})
+#: Discord's error code for "a thread has already been created for this message".
+_THREAD_ALREADY_CREATED = 160004
 _CALLBACK_CHANNEL_MESSAGE_WITH_SOURCE = 4
 _CALLBACK_DEFERRED_UPDATE_MESSAGE = 6
 
@@ -505,14 +507,35 @@ class DiscordClient:
         self, channel_id: str, message_id: str, name: str
     ) -> str | None:
         """Create a public thread rooted at an existing channel message."""
-        result = await self._api(
+        created = await self.api_json(
             "POST",
             f"/channels/{channel_id}/messages/{message_id}/threads",
             {"name": name[:100], "auto_archive_duration": 1440},
         )
-        if not result:
+        if created:
+            thread_id = str(created.data.get("id") or "")
+        elif (
+            created.outcome == _client_rest.DISCORD_PERMANENT
+            and created.code == _THREAD_ALREADY_CREATED
+        ):
+            # The create landed with its response lost, and the retry is refused
+            # because the thread now exists under the message's own id. Adopt it
+            # only when Discord reports THIS bot opened it under this channel, the
+            # same test ``readmit_own_thread`` applies after a restart; every
+            # other failure, a mid-retry refusal included, stays a failure.
+            origin = await self.thread_origin(str(message_id))
+            if (
+                origin is None
+                or origin.channel_type not in (10, 11)
+                or not self.bot_user_id
+                or origin.owner_id != self.bot_user_id
+                or origin.parent_id != str(channel_id)
+            ):
+                return None
+            # ``thread_origin`` already cached the type Discord reported.
+            return str(message_id)
+        else:
             return None
-        thread_id = str(result.get("id") or "")
         if thread_id:
             self._channel_types[thread_id] = 11
         return thread_id or None

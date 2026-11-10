@@ -669,6 +669,22 @@ class DiscordTransport(MessagingTransport):
                         source="discord",
                     )
                     return
+                # Both rosters are read again AFTER the create, as
+                # ``readmit_own_thread`` does after its lookup: recovering a thread
+                # whose create response was lost reads it back through a lookup the
+                # client's own mid-send re-check skips, so a reload that withdrew the
+                # sender or the parent channel during that wait must refuse the grant.
+                if (
+                    inbound.user_id not in self._allowed
+                    or inbound.channel_id not in self._allowed_channels
+                ):
+                    sel().log_api_access(
+                        caller=inbound.user_id,
+                        operation="discord_transport.receive",
+                        outcome="thread_withdrawn_during_create",
+                        source="discord",
+                    )
+                    return
                 thread_id = created
                 conversation_id = created
                 # Authorize the thread transport-side FIRST: this is the set
